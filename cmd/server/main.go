@@ -6,11 +6,15 @@ import (
 	"os"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/contrib/gorilla/mux"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/sepetrov/pingpong"
 )
 
 func main() {
+	tracer.Start(tracer.WithAnalytics(true))
+	defer tracer.Stop()
+
 	router := mux.NewRouter(mux.WithServiceName(pingpong.Name))
 
 	pingpong.New(routerAdapter{router})
