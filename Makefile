@@ -84,6 +84,7 @@ start-client: ## Start PingPong client
 		--name pingpong-client \
 		--network pingpong-network \
 		-d \
+		-e DD_AGENT_HOST=dd-agent \
 		-e SERVER_ADDR=http://pingpong-server:8080 \
 		pingpong-client
 

@@ -15,15 +15,14 @@ const defaultHTTPPort = "8080"
 
 func main() {
 	tracer.Start(
-		// tracer.WithAgentAddr(os.Getenv("DD_AGENT_ADDR")),
 		tracer.WithAnalytics(true),
 		tracer.WithDebugMode(true),
 	)
 	defer tracer.Stop()
 
-	router := mux.NewRouter(mux.WithServiceName(pingpong.Name))
+	router := mux.NewRouter(mux.WithServiceName("pingpong-server"))
 
-	pingpong.New(routerAdapter{router})
+	pingpong.New(routerAdapter{router}, nil)
 	port := os.Getenv("HTTP_PORT")
 	if port == "" {
 		port = defaultHTTPPort
