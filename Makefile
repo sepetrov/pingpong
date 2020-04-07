@@ -48,6 +48,10 @@ start-dd-agent: ## Start DataDog agent
 	@echo "\nStarting DataDog agent\n"
 	@:$(call check_defined, DD_API_KEY, DataDog API key is required)
 	DOCKER_CONTENT_TRUST=1 docker run \
+		--cap-add=NET_ADMIN \
+		--cap-add=SYS_ADMIN \
+		--cap-add=SYS_PTRACE \
+		--cap-add=SYS_RESOURCE \
 		--name dd-agent \
 		--network pingpong-network \
 		--security-opt apparmor:unconfined \
@@ -57,17 +61,14 @@ start-dd-agent: ## Start DataDog agent
 		-e DD_APM_ENABLED=true \
 		-e DD_APM_NON_LOCAL_TRAFFIC=true \
 		-e DD_LOG_LEVEL=info \
+		-e DD_PROCESS_AGENT_ENABLED=true \
 		-e DD_SITE=${DD_SITE} \
 		-e DD_SYSTEM_PROBE_ENABLED=true \
 		-p 127.0.0.1:8126:8126/tcp \
-		-e DD_PROCESS_AGENT_ENABLED=true \
 		-v /proc/:/host/proc/:ro \
 		-v /sys/fs/cgroup/:/host/sys/fs/cgroup:ro \
+		-v /sys/kernel/debug:/sys/kernel/debug \
 		-v /var/run/docker.sock:/var/run/docker.sock:ro \
-		--cap-add=NET_ADMIN \
-		--cap-add=SYS_ADMIN \
-		--cap-add=SYS_PTRACE \
-		--cap-add=SYS_RESOURCE \
 		datadog/agent:7
 
 
