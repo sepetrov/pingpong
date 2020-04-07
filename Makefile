@@ -1,6 +1,12 @@
 .PHONY: \
+	all \
+	build \
+	clean \
+	image \
+	start-client \
+	create-network \
 	start-dd-agent \
-
+	start-server \
 
 include .env
 
@@ -10,36 +16,84 @@ DD_SITE=datadoghq.eu
 
 export DD_SITE
 
-
 .DEFAULT_GOAL:=help
+
+all: ## Start the whole thing
+all: image create-network start-dd-agent start-server start-client
+
+image: ## Build PingPong client and server Docker images
+	echo "\nBuilding PingPong client and server Docker images\n"
+	docker build \
+		--build-arg 'CMD_PATH=./cmd/server' \
+		-f Dockerfile \
+		-t pingpong-server \
+		.
+	docker build \
+    		--build-arg 'CMD_PATH=./cmd/client' \
+    		-f Dockerfile \
+    		-t pingpong-client \
+    		.
+
+build: ## Build PingPong client and server
+	echo "\nBuilding PingPong client and server\n"
+	mkdir -p ./bin
+	go build -o ./bin/pingpong-client ./cmd/client/
+	go build -o ./bin/pingpong-server ./cmd/server/
+
+create-network: ## Create network
+	echo "\nCreating network\n"
+	docker network create pingpong-network
 
 start-dd-agent: ## Start DataDog agent
 	@echo "\nStarting DataDog agent\n"
 	@:$(call check_defined, DD_API_KEY, DataDog API key is required)
 	@if [ $(shell docker ps --format '{{.Names}}' | grep dd-agent | wc -l) == "0" ]; then \
 		DOCKER_CONTENT_TRUST=1 docker run \
-			-d \
 			--name dd-agent \
-			-v /var/run/docker.sock:/var/run/docker.sock:ro \
+			--network pingpong-network \
+			-d \
+			-e DD_API_KEY=${DD_API_KEY} \
+			-e DD_APM_DD_URL=https://trace.agent.datadoghq.eu \
+			-e DD_APM_ENABLED=true \
+			-e DD_APM_NON_LOCAL_TRAFFIC=true \
+			-e DD_LOG_LEVEL=info \
+			-e DD_SITE=${DD_SITE} \
+			-p 127.0.0.1:8126:8126/tcp \
 			-v /proc/:/host/proc/:ro \
 			-v /sys/fs/cgroup/:/host/sys/fs/cgroup:ro \
-			-e DD_API_KEY=${DD_API_KEY} \
-			-e DD_SITE=${DD_SITE} \
+			-v /var/run/docker.sock:/var/run/docker.sock:ro \
 			datadog/agent:7 \
 			; \
 	fi
 
-up: ## Start services
-up: start-dd-agent
-	@echo "\nStarting PingPong service\n"
-	docker-compose up --build -d --force-recreate --remove-orphans
 
-clean: ## Stop services
-	@echo "\nCleaning up\n"
-	-docker stop dd-agent
-	-docker rm -v dd-agent
-	-docker-compose stop
-	-docker-compose rm -sfv
+
+start-server: ## Start PingPong server
+	@echo "\nStarting PingPong server\n"
+	docker run \
+		--name pingpong-server \
+		--network pingpong-network \
+		-d \
+		-e DD_AGENT_HOST=dd-agent \
+		-e HTTP_PORT=8080 \
+		pingpong-server
+
+start-client: ## Start PingPong client
+	@echo "\nStarting PingPong client\n"
+	docker run \
+		--name pingpong-client \
+		--network pingpong-network \
+		-d \
+		-e SERVER_ADDR=http://pingpong-server:8080 \
+		pingpong-client
+
+clean: ## Clean up
+	-docker rm -fv \
+		dd-agent \
+		pingpong-client \
+		pingpong-server
+	-docker network remove pingpong-network
+
 
 ##
 ##  * Help

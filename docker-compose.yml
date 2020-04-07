@@ -1,8 +1,0 @@
-version: "3"
-services:
-  pingpong:
-      build:
-        context: .
-        dockerfile: Dockerfile
-      environment:
-        HTTP_PORT: 8080

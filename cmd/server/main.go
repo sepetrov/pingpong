@@ -11,8 +11,14 @@ import (
 	"github.com/sepetrov/pingpong"
 )
 
+const defaultHTTPPort = "8080"
+
 func main() {
-	tracer.Start(tracer.WithAnalytics(true))
+	tracer.Start(
+		// tracer.WithAgentAddr(os.Getenv("DD_AGENT_ADDR")),
+		tracer.WithAnalytics(true),
+		tracer.WithDebugMode(true),
+	)
 	defer tracer.Stop()
 
 	router := mux.NewRouter(mux.WithServiceName(pingpong.Name))
@@ -20,10 +26,10 @@ func main() {
 	pingpong.New(routerAdapter{router})
 	port := os.Getenv("HTTP_PORT")
 	if port == "" {
-		log.Fatalf("HTTP_PORT not set")
+		port = defaultHTTPPort
 	}
 
-	log.Println("listening on port" + port)
+	log.Println("listening on port " + port)
 	log.Fatal(http.ListenAndServe(":"+port, router))
 }
 
