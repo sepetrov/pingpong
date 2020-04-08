@@ -7,6 +7,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 func init() {
@@ -71,10 +72,20 @@ func (l requestLogger) wrap(next http.HandlerFunc) http.HandlerFunc {
 			statusCode:     http.StatusOK,
 		}
 		next(&rw, r)
-		if rw.statusCode >= 300 {
-			l.logger.Error("status_code", rw.statusCode, "error", "something went wrong")
+
+		fields := log.Fields{
+			"status_code": rw.statusCode,
+			"status_text": http.StatusText(rw.statusCode),
+		}
+		if span, ok := tracer.SpanFromContext(r.Context()); ok {
+			fields["dd.trace_id"] = span.Context().TraceID()
+			fields["dd.span_id"] = span.Context().SpanID()
+		}
+
+		if rw.statusCode >= 400 {
+			l.logger.WithFields(fields).Error("something went wrong")
 		} else {
-			l.logger.Info("status_code", rw.statusCode, "message", "all good")
+			l.logger.WithFields(fields).Info("all good")
 		}
 	}
 }
