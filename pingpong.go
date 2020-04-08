@@ -1,11 +1,14 @@
 package pingpong
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/sqs"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
@@ -14,34 +17,43 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// Router represents HTTP router.
-type Router interface {
-	HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request))
-}
-
 // New creates new pingpong service, attaches its handlers to r and returns the service.
-func New(r Router, l *log.Logger) Server {
+func New(s *sqs.SQS, queue string, l *log.Logger) (Server, error) {
+	if s == nil {
+		return Server{}, errors.New("SQS client is required")
+	}
+	if queue == "" {
+		return Server{}, errors.New("SQS queue is required")
+	}
 	if l == nil {
 		l = log.New()
 		l.SetFormatter(&log.JSONFormatter{})
 	}
 
-	svr := Server{router: r}
+	svr := Server{
+		sqs:    s,
+		queue:  queue,
+		logger: l,
+	}
 
-	logRequest := requestLogger{logger: l}.wrap
-
-	svr.router.HandleFunc("/ping", logRequest(svr.handlePing()))
-
-	return svr
+	return svr, nil
 }
 
 // Server represents pingpong service.
 type Server struct {
-	router Router
+	sqs    *sqs.SQS
+	queue  string
+	logger *log.Logger
+}
+
+func (svr Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	logRequest := requestLogger{logger: svr.logger}.wrap
+	handler := logRequest(svr.handlePing())
+	handler.ServeHTTP(w, r)
 }
 
 func (svr Server) handlePing() http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		switch rand.Intn(10) {
 		case 0:
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -57,6 +69,39 @@ func (svr Server) handlePing() http.HandlerFunc {
 		time.Sleep(time.Duration(rand.Intn(100)) * 30 * time.Millisecond)
 
 		fmt.Fprint(w, "pong")
+
+		span, ok := tracer.SpanFromContext(r.Context())
+		if !ok {
+			span = tracer.StartSpan("send_message", tracer.Tag("queue", svr.queue))
+		}
+		defer span.Finish()
+
+		out, err := svr.sqs.SendMessage(&sqs.SendMessageInput{
+			MessageAttributes: map[string]*sqs.MessageAttributeValue{
+				"dd.trace_id": {
+					DataType:    aws.String("Number"),
+					StringValue: aws.String(fmt.Sprintf("%d", span.Context().TraceID())),
+				},
+				"dd.span_id": {
+					DataType:    aws.String("Number"),
+					StringValue: aws.String(fmt.Sprintf("%d", span.Context().SpanID())),
+				},
+			},
+			MessageBody: aws.String("ping"),
+			QueueUrl:    aws.String(svr.queue),
+		})
+
+		fields := log.Fields{
+			"dd.trace_id": fmt.Sprintf("%d", span.Context().TraceID()),
+			"dd.span_id":  fmt.Sprintf("%d", span.Context().SpanID()),
+		}
+		if err != nil {
+			log.WithFields(fields).Error("sqs: send message: %v", err)
+			return
+		}
+
+		fields["sqs.message_id"] = *out.MessageId
+		log.WithFields(fields).Info("message sent")
 	}
 }
 

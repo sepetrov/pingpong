@@ -12,9 +12,8 @@ include .env
 
 export $(shell [ -f .env ] && sed 's/^\([A-Z_]*\).*/\1/' .env)
 
+DD_SITE?=datadoghq.eu
 SERVER_ADDR?=http://pingpong-server:8080
-
-export DD_SITE
 
 .DEFAULT_GOAL:=help
 
@@ -58,14 +57,14 @@ start-dd-agent: ## Start DataDog agent
 		-d \
 		-e DD_AC_EXCLUDE="name:dd-agent" \
 		-e DD_API_KEY=${DD_API_KEY} \
-		-e DD_APM_DD_URL=https://trace.agent.datadoghq.eu \
+		-e DD_APM_DD_URL=https://trace.agent.${DD_SITE} \
 		-e DD_APM_ENABLED=true \
 		-e DD_APM_NON_LOCAL_TRAFFIC=true \
 		-e DD_LOG_LEVEL=info \
 		-e DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true \
 		-e DD_LOGS_ENABLED=true \
 		-e DD_PROCESS_AGENT_ENABLED=true \
-		-e DD_SITE="datadoghq.eu"  \
+		-e DD_SITE=${DD_SITE}  \
 		-e DD_SYSTEM_PROBE_ENABLED=true \
 		-p 127.0.0.1:8126:8126/tcp \
 		-v /opt/datadog-agent/run:/opt/datadog-agent/run:rw \
@@ -83,8 +82,12 @@ start-server: ## Start PingPong server
 		--name pingpong-server \
 		--network pingpong-network \
 		-d \
+		-e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
+		-e AWS_REGION=${AWS_REGION} \
+		-e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
 		-e DD_AGENT_HOST=dd-agent \
 		-e HTTP_PORT=8080 \
+		-e SQS_QUEUE=${SQS_QUEUE} \
 		-p 8080:8080 \
 		pingpong-server
 

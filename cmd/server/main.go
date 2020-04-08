@@ -4,8 +4,9 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/sqs"
 	log "github.com/sirupsen/logrus"
-
 	"gopkg.in/DataDog/dd-trace-go.v1/contrib/gorilla/mux"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
@@ -19,27 +20,37 @@ func init() {
 }
 
 func main() {
-	tracer.Start(
-		tracer.WithAnalytics(true),
-	)
-	defer tracer.Stop()
+	for _, k := range []string{
+		"AWS_ACCESS_KEY_ID",
+		"AWS_SECRET_ACCESS_KEY",
+		"AWS_REGION",
+		"SQS_QUEUE",
+	} {
+		if os.Getenv(k) == "" {
+			log.Fatalf("%s is required", k)
+		}
+	}
 
-	router := mux.NewRouter(mux.WithServiceName("pingpong-server"))
-
-	pingpong.New(routerAdapter{router}, log.StandardLogger())
 	port := os.Getenv("HTTP_PORT")
 	if port == "" {
 		port = defaultHTTPPort
 	}
 
+	svr, err := pingpong.New(
+		sqs.New(session.Must(session.NewSession())),
+		os.Getenv("SQS_QUEUE"),
+		log.StandardLogger(),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	router := mux.NewRouter(mux.WithServiceName("pingpong-server"))
+	router.HandleFunc("/ping", svr.ServeHTTP)
+
+	tracer.Start(tracer.WithAnalytics(true))
+	defer tracer.Stop()
+
 	log.Println("listening on port " + port)
 	log.Fatal(http.ListenAndServe(":"+port, router))
-}
-
-type routerAdapter struct {
-	mux *mux.Router
-}
-
-func (r routerAdapter) HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request)) {
-	r.mux.HandleFunc(pattern, handler)
 }
