@@ -2,11 +2,11 @@ package pingpong
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
 	"net/http"
-	"os"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func init() {
@@ -21,7 +21,8 @@ type Router interface {
 // New creates new pingpong service, attaches its handlers to r and returns the service.
 func New(r Router, l *log.Logger) Server {
 	if l == nil {
-		log.New(os.Stderr, "", 0)
+		l = log.New()
+		l.SetFormatter(&log.JSONFormatter{})
 	}
 
 	svr := Server{router: r}
@@ -65,7 +66,22 @@ type requestLogger struct {
 
 func (l requestLogger) wrap(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("%v\n", r.Header)
-		next(w, r)
+		rw := responseWrapper{statusCode: http.StatusOK}
+		next(&rw, r)
+		if rw.statusCode >= 300 {
+			l.logger.Error("status_code", rw.statusCode, "error", "something went wrong")
+		} else {
+			l.logger.Info("status_code", rw.statusCode, "message", "all good")
+		}
 	}
+}
+
+type responseWrapper struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (w *responseWrapper) WriteHeader(statusCode int) {
+	w.statusCode = statusCode
+	w.ResponseWriter.WriteHeader(statusCode)
 }

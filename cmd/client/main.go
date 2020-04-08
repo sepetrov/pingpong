@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -11,12 +10,14 @@ import (
 	"strings"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 const defaultServerAddr = "http://localhost:8080"
 
 func init() {
+	log.SetFormatter(&log.JSONFormatter{})
 	rand.Seed(time.Now().UnixNano())
 }
 
@@ -24,7 +25,6 @@ func main() {
 	tracer.Start(
 		tracer.WithServiceName("pingpong-client"),
 		tracer.WithAnalytics(true),
-		tracer.WithDebugMode(true),
 	)
 	defer tracer.Stop()
 

@@ -1,9 +1,10 @@
 package main
 
 import (
-	"log"
 	"net/http"
 	"os"
+
+	log "github.com/sirupsen/logrus"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/contrib/gorilla/mux"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -13,10 +14,13 @@ import (
 
 const defaultHTTPPort = "8080"
 
+func init() {
+	log.SetFormatter(&log.JSONFormatter{})
+}
+
 func main() {
 	tracer.Start(
 		tracer.WithAnalytics(true),
-		tracer.WithDebugMode(true),
 	)
 	defer tracer.Stop()
 
