@@ -56,7 +56,7 @@ start-dd-agent: ## Start DataDog agent
 		--network pingpong-network \
 		--security-opt apparmor:unconfined \
 		-d \
-		-e DD_AC_EXCLUDE="name:datadog-agent" \
+		-e DD_AC_EXCLUDE="name:dd-agent" \
 		-e DD_API_KEY=${DD_API_KEY} \
 		-e DD_APM_DD_URL=https://trace.agent.datadoghq.eu \
 		-e DD_APM_ENABLED=true \
