@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -68,8 +69,8 @@ func ping(u *url.URL) {
 	err = tracer.Inject(span.Context(), tracer.HTTPHeadersCarrier(req.Header))
 	if err != nil {
 		log.WithFields(log.Fields{
-			"trace_id": span.Context().TraceID(),
-			"span_id":  span.Context().SpanID(),
+			"dd.trace_id": fmt.Sprintf("%d", span.Context().TraceID()),
+			"dd.span_id":  fmt.Sprintf("%d", span.Context().SpanID()),
 		}).Error(err)
 		return
 	}
@@ -77,8 +78,8 @@ func ping(u *url.URL) {
 
 	if err != nil {
 		log.WithFields(log.Fields{
-			"trace_id": span.Context().TraceID(),
-			"span_id":  span.Context().SpanID(),
+			"dd.trace_id": fmt.Sprintf("%d", span.Context().TraceID()),
+			"dd.span_id":  fmt.Sprintf("%d", span.Context().SpanID()),
 		}).Error(err)
 	}
 }
