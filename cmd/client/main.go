@@ -85,12 +85,9 @@ func ping(u *url.URL) {
 	}
 
 	fields["response_headers"] = resp.Header
-	if resp.StatusCode != http.StatusOK {
-		log.WithFields(fields).Warn()
-		return
-	}
-
-	log.WithFields(fields).Info()
+	fields["status_code"] = resp.StatusCode
+	fields["status_text"] = http.StatusText(resp.StatusCode)
+	log.WithFields(fields).Info(fmt.Sprintf("%s %s", req.Method, req.URL))
 }
 
 func urls(s string) ([]*url.URL, error) {
