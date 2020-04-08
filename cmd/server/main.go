@@ -26,7 +26,7 @@ func main() {
 
 	router := mux.NewRouter(mux.WithServiceName("pingpong-server"))
 
-	pingpong.New(routerAdapter{router}, nil)
+	pingpong.New(routerAdapter{router}, log.StandardLogger())
 	port := os.Getenv("HTTP_PORT")
 	if port == "" {
 		port = defaultHTTPPort

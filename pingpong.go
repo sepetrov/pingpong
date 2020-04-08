@@ -28,7 +28,7 @@ func New(r Router, l *log.Logger) Server {
 
 	svr := Server{router: r}
 
-	logRequest := requestLogger{logger: svr.logger}.wrap
+	logRequest := requestLogger{logger: l}.wrap
 
 	svr.router.HandleFunc("/ping", logRequest(svr.handlePing()))
 
@@ -38,7 +38,6 @@ func New(r Router, l *log.Logger) Server {
 // Server represents pingpong service.
 type Server struct {
 	router Router
-	logger log.Logger
 }
 
 func (svr Server) handlePing() http.HandlerFunc {
@@ -62,7 +61,7 @@ func (svr Server) handlePing() http.HandlerFunc {
 }
 
 type requestLogger struct {
-	logger log.Logger
+	logger *log.Logger
 }
 
 func (l requestLogger) wrap(next http.HandlerFunc) http.HandlerFunc {
@@ -71,6 +70,7 @@ func (l requestLogger) wrap(next http.HandlerFunc) http.HandlerFunc {
 			ResponseWriter: w,
 			statusCode:     http.StatusOK,
 		}
+
 		next(&rw, r)
 
 		fields := log.Fields{
