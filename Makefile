@@ -2,9 +2,14 @@
 	all \
 	build \
 	clean \
-	image \
-	start-client \
 	create-network \
+	image \
+	image-client \
+	image-consumer \
+	image-server \
+	start \
+	start-client \
+	start-consumer \
 	start-dd-agent \
 	start-server \
 
@@ -18,30 +23,49 @@ SERVER_ADDR?=http://pingpong-server:8080
 .DEFAULT_GOAL:=help
 
 all: ## Start the whole thing
-all: image create-network start-dd-agent start-server start-client
+all: image create-network start
 
-image: ## Build PingPong client and server Docker images
-	echo "\nBuilding PingPong client and server Docker images\n"
+
+build: ## Build PingPong client, server and consumer
+	echo "\nBuilding PingPong client, server and consumer\n"
+	mkdir -p ./bin
+	go build -o ./bin/pingpong-client ./cmd/client/
+	go build -o ./bin/pingpong-client ./cmd/consumer/
+	go build -o ./bin/pingpong-server ./cmd/server/
+
+image: ## Build PingPong client, server and consumer Docker images
+image: image-client image-consumer image-server
+
+image-client: ## Build PingPong client Docker image
+	echo "\nBuilding PingPong client Docker images\n"
+	docker build \
+		--build-arg 'CMD_PATH=./cmd/client' \
+		-f Dockerfile \
+		-t pingpong-client \
+		.
+
+image-consumer: ## Build PingPong consumer Docker image
+	echo "\nBuilding PingPong consumer Docker images\n"
+	docker build \
+		--build-arg 'CMD_PATH=./cmd/consumer' \
+		-f Dockerfile \
+		-t pingpong-consumer \
+		.
+
+image-server: ## Build PingPong server Docker image
+	echo "\nBuilding PingPong server Docker images\n"
 	docker build \
 		--build-arg 'CMD_PATH=./cmd/server' \
 		-f Dockerfile \
 		-t pingpong-server \
 		.
-	docker build \
-    		--build-arg 'CMD_PATH=./cmd/client' \
-    		-f Dockerfile \
-    		-t pingpong-client \
-    		.
 
-build: ## Build PingPong client and server
-	echo "\nBuilding PingPong client and server\n"
-	mkdir -p ./bin
-	go build -o ./bin/pingpong-client ./cmd/client/
-	go build -o ./bin/pingpong-server ./cmd/server/
-
-create-network: ## Create network
-	echo "\nCreating network\n"
+create-network: ## Create PingPong network
+	echo "\nCreating PingPong network\n"
 	docker network create pingpong-network
+
+start: ## Start DataDog agent, PingPong client, server and consumer
+start: start-dd-agent start-server start-consumer start-client
 
 start-dd-agent: ## Start DataDog agent
 	@echo "\nStarting DataDog agent\n"
@@ -74,8 +98,6 @@ start-dd-agent: ## Start DataDog agent
 		-v /var/run/docker.sock:/var/run/docker.sock:ro \
 		datadog/agent:7
 
-
-
 start-server: ## Start PingPong server
 	@echo "\nStarting PingPong server\n"
 	docker run \
@@ -91,6 +113,19 @@ start-server: ## Start PingPong server
 		-p 8080:8080 \
 		pingpong-server
 
+start-consumer: ## Start PingPong consumer
+	@echo "\nStarting PingPong consumer\n"
+	docker run \
+		--name pingpong-consumer \
+		--network pingpong-network \
+		-d \
+		-e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
+		-e AWS_REGION=${AWS_REGION} \
+		-e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
+		-e DD_AGENT_HOST=dd-agent \
+		-e SQS_QUEUE_URL=${SQS_QUEUE_URL} \
+		pingpong-consumer
+
 start-client: ## Start PingPong client
 	@echo "\nStarting PingPong client\n"
 	docker run \
@@ -105,9 +140,9 @@ clean: ## Clean up
 	-docker rm -fv \
 		dd-agent \
 		pingpong-client \
+		pingpong-consumer \
 		pingpong-server
 	-docker network remove pingpong-network
-
 
 ##
 ##  * Help
