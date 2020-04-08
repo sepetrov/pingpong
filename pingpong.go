@@ -53,6 +53,8 @@ func (svr Server) handlePing() http.HandlerFunc {
 			return
 		}
 
+		time.Sleep(time.Duration(rand.Intn(100)) * 30 * time.Millisecond)
+
 		fmt.Fprint(w, "pong")
 	}
 }
