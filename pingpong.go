@@ -3,9 +3,15 @@ package pingpong
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
+	"time"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 // Router represents HTTP router.
 type Router interface {
@@ -35,6 +41,18 @@ type Server struct {
 
 func (svr Server) handlePing() http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
+		switch rand.Intn(10) {
+		case 0:
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		case 1:
+			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			return
+		case 2:
+			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
+			return
+		}
+
 		fmt.Fprint(w, "pong")
 	}
 }
