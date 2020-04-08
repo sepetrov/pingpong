@@ -13,6 +13,7 @@ include .env
 export $(shell [ -f .env ] && sed 's/^\([A-Z_]*\).*/\1/' .env)
 
 DD_SITE=datadoghq.eu
+SERVER_ADDR?=http://pingpong-server:8080
 
 export DD_SITE
 
@@ -81,6 +82,7 @@ start-server: ## Start PingPong server
 		-d \
 		-e DD_AGENT_HOST=dd-agent \
 		-e HTTP_PORT=8080 \
+		-p 8080:8080 \
 		pingpong-server
 
 start-client: ## Start PingPong client
@@ -90,7 +92,7 @@ start-client: ## Start PingPong client
 		--network pingpong-network \
 		-d \
 		-e DD_AGENT_HOST=dd-agent \
-		-e SERVER_ADDR=http://pingpong-server:8080 \
+		-e SERVER_ADDR=${SERVER_ADDR} \
 		pingpong-client
 
 clean: ## Clean up

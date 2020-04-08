@@ -2,16 +2,23 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 const defaultServerAddr = "http://localhost:8080"
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 func main() {
 	tracer.Start(
@@ -26,13 +33,21 @@ func main() {
 		addr = defaultServerAddr
 	}
 
-	u, err := url.Parse(addr)
+	addrs, err := urls(addr)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	u.Path = "/ping"
 
-	ticker := time.NewTicker(500 * time.Millisecond)
+	for _, u := range addrs {
+		go work(u, time.Duration(rand.Intn(50)+1)*10*time.Millisecond)
+	}
+
+	ch := make(chan struct{})
+	<-ch
+}
+
+func work(u *url.URL, d time.Duration) {
+	ticker := time.NewTicker(d)
 	defer ticker.Stop()
 
 	for {
@@ -63,4 +78,24 @@ func ping(u *url.URL) error {
 	_, err = http.DefaultClient.Do(req)
 
 	return err
+}
+
+func urls(s string) ([]*url.URL, error) {
+	if s == "" {
+		return nil, errors.New("urls: s is required")
+	}
+
+	var uu []*url.URL
+
+	for _, addr := range strings.Split(s, ",") {
+		u, err := url.Parse(addr)
+		if err != nil {
+			return nil, err
+		}
+		u.Path = "/ping"
+
+		uu = append(uu, u)
+	}
+
+	return uu, nil
 }
