@@ -87,7 +87,7 @@ start-server: ## Start PingPong server
 		-e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
 		-e DD_AGENT_HOST=dd-agent \
 		-e HTTP_PORT=8080 \
-		-e SQS_QUEUE=${SQS_QUEUE} \
+		-e SQS_QUEUE_URL=${SQS_QUEUE_URL} \
 		-p 8080:8080 \
 		pingpong-server
 

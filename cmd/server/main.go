@@ -24,7 +24,7 @@ func main() {
 		"AWS_ACCESS_KEY_ID",
 		"AWS_SECRET_ACCESS_KEY",
 		"AWS_REGION",
-		"SQS_QUEUE",
+		"SQS_QUEUE_URL",
 	} {
 		if os.Getenv(k) == "" {
 			log.Fatalf("%s is required", k)
@@ -38,7 +38,7 @@ func main() {
 
 	svr, err := pingpong.New(
 		sqs.New(session.Must(session.NewSession())),
-		os.Getenv("SQS_QUEUE"),
+		os.Getenv("SQS_QUEUE_URL"),
 		log.StandardLogger(),
 	)
 	if err != nil {
