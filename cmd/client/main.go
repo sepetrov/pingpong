@@ -39,23 +39,18 @@ func main() {
 	}
 
 	for _, u := range addrs {
-		go work(u, time.Duration(rand.Intn(50)+1)*10*time.Millisecond)
+		go func(u *url.URL) {
+			for {
+				time.Sleep(time.Duration(rand.Intn(10)) * time.Millisecond)
+				if err := ping(u); err != nil {
+					log.Println(err)
+				}
+			}
+		}(u)
 	}
 
 	ch := make(chan struct{})
 	<-ch
-}
-
-func work(u *url.URL, d time.Duration) {
-	ticker := time.NewTicker(d)
-	defer ticker.Stop()
-
-	for {
-		<-ticker.C
-		if err := ping(u); err != nil {
-			log.Println(err)
-		}
-	}
 }
 
 func ping(u *url.URL) error {
