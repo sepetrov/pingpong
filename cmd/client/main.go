@@ -65,23 +65,32 @@ func ping(u *url.URL) {
 	ctx := tracer.ContextWithSpan(context.Background(), span)
 	req = req.WithContext(ctx)
 
+	fields := log.Fields{
+		"dd.trace_id": fmt.Sprintf("%d", span.Context().TraceID()),
+		"dd.span_id":  fmt.Sprintf("%d", span.Context().SpanID()),
+	}
+
 	// Inject the span Context in the Request headers
 	err = tracer.Inject(span.Context(), tracer.HTTPHeadersCarrier(req.Header))
 	if err != nil {
-		log.WithFields(log.Fields{
-			"dd.trace_id": fmt.Sprintf("%d", span.Context().TraceID()),
-			"dd.span_id":  fmt.Sprintf("%d", span.Context().SpanID()),
-		}).Error(err)
+		log.WithFields(fields).Error(err)
 		return
 	}
-	_, err = http.DefaultClient.Do(req)
+
+	resp, err := http.DefaultClient.Do(req)
 
 	if err != nil {
-		log.WithFields(log.Fields{
-			"dd.trace_id": fmt.Sprintf("%d", span.Context().TraceID()),
-			"dd.span_id":  fmt.Sprintf("%d", span.Context().SpanID()),
-		}).Error(err)
+		log.WithFields(fields).Error(err)
+		return
 	}
+
+	fields["response_headers"] = resp.Header
+	if resp.StatusCode != http.StatusOK {
+		log.WithFields(fields).Warn()
+		return
+	}
+
+	log.WithFields(fields).Info()
 }
 
 func urls(s string) ([]*url.URL, error) {
