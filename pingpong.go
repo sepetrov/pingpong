@@ -70,10 +70,7 @@ func (svr Server) handlePing() http.HandlerFunc {
 
 		fmt.Fprint(w, "pong")
 
-		span, ok := tracer.SpanFromContext(r.Context())
-		if !ok {
-			span = tracer.StartSpan("send_message", tracer.Tag("queue", svr.queue))
-		}
+		span, _ := tracer.StartSpanFromContext(r.Context(), "send_message", tracer.Tag("queue", svr.queue))
 		defer span.Finish()
 
 		out, err := svr.sqs.SendMessage(&sqs.SendMessageInput{
