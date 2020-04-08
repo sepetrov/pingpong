@@ -66,7 +66,10 @@ type requestLogger struct {
 
 func (l requestLogger) wrap(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		rw := responseWrapper{statusCode: http.StatusOK}
+		rw := responseWrapper{
+			ResponseWriter: w,
+			statusCode:     http.StatusOK,
+		}
 		next(&rw, r)
 		if rw.statusCode >= 300 {
 			l.logger.Error("status_code", rw.statusCode, "error", "something went wrong")
