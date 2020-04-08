@@ -97,7 +97,7 @@ func (svr Server) handlePing() http.HandlerFunc {
 			return
 		}
 
-		fields["sqs.message_id"] = *out.MessageId
+		fields["sqs_message_id"] = *out.MessageId
 		log.WithFields(fields).Info("message sent")
 	}
 }
