@@ -41,7 +41,7 @@ func main() {
 	for _, u := range addrs {
 		go func(u *url.URL) {
 			for {
-				time.Sleep(time.Duration(rand.Intn(10)) * time.Millisecond)
+				time.Sleep(time.Duration(rand.Intn(10)) * 10 * time.Millisecond)
 				if err := ping(u); err != nil {
 					log.Println(err)
 				}
