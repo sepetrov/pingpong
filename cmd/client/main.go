@@ -68,8 +68,8 @@ func ping(u *url.URL) {
 	err = tracer.Inject(span.Context(), tracer.HTTPHeadersCarrier(req.Header))
 	if err != nil {
 		log.WithFields(log.Fields{
-			"dd.trace_id": span.Context().TraceID(),
-			"dd.span_id":  span.Context().SpanID(),
+			"trace_id": span.Context().TraceID(),
+			"span_id":  span.Context().SpanID(),
 		}).Error(err)
 		return
 	}
@@ -77,8 +77,8 @@ func ping(u *url.URL) {
 
 	if err != nil {
 		log.WithFields(log.Fields{
-			"dd.trace_id": span.Context().TraceID(),
-			"dd.span_id":  span.Context().SpanID(),
+			"trace_id": span.Context().TraceID(),
+			"span_id":  span.Context().SpanID(),
 		}).Error(err)
 	}
 }

@@ -78,8 +78,8 @@ func (l requestLogger) wrap(next http.HandlerFunc) http.HandlerFunc {
 			"status_text": http.StatusText(rw.statusCode),
 		}
 		if span, ok := tracer.SpanFromContext(r.Context()); ok {
-			fields["dd.trace_id"] = span.Context().TraceID()
-			fields["dd.span_id"] = span.Context().SpanID()
+			fields["trace_id"] = span.Context().TraceID()
+			fields["span_id"] = span.Context().SpanID()
 		}
 
 		if rw.statusCode >= 400 {
