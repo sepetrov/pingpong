@@ -68,8 +68,6 @@ func (svr Server) handlePing() http.HandlerFunc {
 
 		time.Sleep(time.Duration(rand.Intn(100)) * 30 * time.Millisecond)
 
-		fmt.Fprint(w, "pong")
-
 		span, _ := tracer.StartSpanFromContext(r.Context(), "send_message", tracer.Tag("queue", svr.queue))
 		defer span.Finish()
 
@@ -94,11 +92,14 @@ func (svr Server) handlePing() http.HandlerFunc {
 		}
 		if err != nil {
 			log.WithFields(fields).Error("sqs: send message: %v", err)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 
 		fields["sqs_message_id"] = *out.MessageId
 		log.WithFields(fields).Info("message sent")
+
+		fmt.Fprint(w, "pong")
 	}
 }
 
