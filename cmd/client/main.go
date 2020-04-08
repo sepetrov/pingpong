@@ -42,9 +42,7 @@ func main() {
 		go func(u *url.URL) {
 			for {
 				time.Sleep(time.Duration(rand.Intn(10)) * 10 * time.Millisecond)
-				if err := ping(u); err != nil {
-					log.Println(err)
-				}
+				ping(u)
 			}
 		}(u)
 	}
@@ -53,10 +51,11 @@ func main() {
 	<-ch
 }
 
-func ping(u *url.URL) error {
+func ping(u *url.URL) {
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
-		return err
+		log.Error(err)
+		return
 	}
 
 	span := tracer.StartSpan("pinging")
@@ -68,11 +67,20 @@ func ping(u *url.URL) error {
 	// Inject the span Context in the Request headers
 	err = tracer.Inject(span.Context(), tracer.HTTPHeadersCarrier(req.Header))
 	if err != nil {
-		return err
+		log.WithFields(log.Fields{
+			"dd.trace_id": span.Context().TraceID(),
+			"dd.span_id":  span.Context().SpanID(),
+		}).Error(err)
+		return
 	}
 	_, err = http.DefaultClient.Do(req)
 
-	return err
+	if err != nil {
+		log.WithFields(log.Fields{
+			"dd.trace_id": span.Context().TraceID(),
+			"dd.span_id":  span.Context().SpanID(),
+		}).Error(err)
+	}
 }
 
 func urls(s string) ([]*url.URL, error) {
