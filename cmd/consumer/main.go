@@ -92,7 +92,7 @@ func work(svc *sqs.SQS, queue string) {
 	}
 
 	// Do something time-consuming with the message.
-	time.Sleep(time.Duration(rand.Intn(2)) * time.Second)
+	time.Sleep(time.Duration(rand.Intn(5)) * 100 * time.Millisecond)
 
 	// Delete the message.
 	_, err = svc.DeleteMessage(&sqs.DeleteMessageInput{
