@@ -1,7 +1,10 @@
 package main
 
 import (
+	"encoding/json"
+	"math/rand"
 	"os"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -12,6 +15,7 @@ import (
 
 func init() {
 	log.SetFormatter(&log.JSONFormatter{})
+	rand.Seed(time.Now().UnixNano())
 }
 
 func main() {
@@ -40,14 +44,12 @@ func work(svc *sqs.SQS, queue string) {
 	span := tracer.StartSpan("process_message")
 	defer span.Finish()
 
+	// Receive message.
 	res, err := svc.ReceiveMessage(&sqs.ReceiveMessageInput{
-		AttributeNames: []*string{
-			aws.String(sqs.MessageSystemAttributeNameSentTimestamp),
-		},
 		MessageAttributeNames: []*string{
-			aws.String(sqs.QueueAttributeNameAll),
 			aws.String("dd.trace_id"),
 			aws.String("dd.span_id"),
+			aws.String("span_ctx"),
 		},
 		QueueUrl:            aws.String(queue),
 		MaxNumberOfMessages: aws.Int64(1),
@@ -62,10 +64,32 @@ func work(svc *sqs.SQS, queue string) {
 		return
 	}
 
+	span.SetBaggageItem("dd.trace_id", *res.Messages[0].MessageAttributes["dd.trace_id"].StringValue)
+	span.SetBaggageItem("dd.span_id", *res.Messages[0].MessageAttributes["dd.span_id"].StringValue)
+
 	fields["dd.trace_id"] = *res.Messages[0].MessageAttributes["dd.trace_id"].StringValue
 	fields["dd.span_id"] = *res.Messages[0].MessageAttributes["dd.span_id"].StringValue
 	fields["sqs_message_id"] = *res.Messages[0].MessageId
 
+	// Start child span of the message trace.
+	var carr map[string]string
+	if err := json.Unmarshal([]byte(*res.Messages[0].MessageAttributes["span_ctx"].StringValue), &carr); err != nil {
+		log.WithFields(fields).Warnf("cannot decode span context: %v", err)
+	} else {
+		sctx, err := tracer.Extract(tracer.TextMapCarrier(carr))
+		if err != nil {
+			log.WithFields(fields).Warnf("cannot extract span context: %v", err)
+		} else {
+
+			span = tracer.StartSpan("process_message", tracer.ChildOf(sctx))
+			defer span.Finish()
+		}
+	}
+
+	// Do something time-consuming with the message.
+	time.Sleep(time.Duration(rand.Intn(2)) * time.Second)
+
+	// Delete the message.
 	_, err = svc.DeleteMessage(&sqs.DeleteMessageInput{
 		QueueUrl:      aws.String(queue),
 		ReceiptHandle: res.Messages[0].ReceiptHandle,

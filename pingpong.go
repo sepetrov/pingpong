@@ -1,6 +1,7 @@
 package pingpong
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -71,6 +72,19 @@ func (svr Server) handlePing() http.HandlerFunc {
 		span, _ := tracer.StartSpanFromContext(r.Context(), "send_message", tracer.Tag("queue", svr.queue))
 		defer span.Finish()
 
+		fields := log.Fields{
+			"dd.trace_id": fmt.Sprintf("%d", span.Context().TraceID()),
+			"dd.span_id":  fmt.Sprintf("%d", span.Context().SpanID()),
+		}
+
+		carr := tracer.TextMapCarrier(map[string]string{})
+		err := tracer.Inject(span.Context(), carr)
+		jcarr, err := json.Marshal(carr)
+		if err != nil {
+			log.WithFields(fields).Warnf("cannot encode span context: %v", err)
+			jcarr = []byte(`{}`)
+		}
+
 		out, err := svr.sqs.SendMessage(&sqs.SendMessageInput{
 			MessageAttributes: map[string]*sqs.MessageAttributeValue{
 				"dd.trace_id": {
@@ -81,17 +95,17 @@ func (svr Server) handlePing() http.HandlerFunc {
 					DataType:    aws.String("Number"),
 					StringValue: aws.String(fmt.Sprintf("%d", span.Context().SpanID())),
 				},
+				"span_ctx": {
+					DataType:    aws.String("String"),
+					StringValue: aws.String(string(jcarr)),
+				},
 			},
 			MessageBody: aws.String("ping"),
 			QueueUrl:    aws.String(svr.queue),
 		})
 
-		fields := log.Fields{
-			"dd.trace_id": fmt.Sprintf("%d", span.Context().TraceID()),
-			"dd.span_id":  fmt.Sprintf("%d", span.Context().SpanID()),
-		}
 		if err != nil {
-			log.WithFields(fields).Error("sqs: send message: %v", err)
+			log.WithFields(fields).Errorf("sqs: send message: %v", err)
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
