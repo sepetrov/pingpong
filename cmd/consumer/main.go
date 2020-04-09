@@ -66,6 +66,7 @@ func work(svc *sqs.SQS, queue string) {
 
 	if len(res.Messages) == 0 {
 		log.WithFields(fields).Info("no messages")
+		time.Sleep(10 * time.Second)
 		return
 	}
 
