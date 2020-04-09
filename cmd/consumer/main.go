@@ -64,6 +64,11 @@ func work(svc *sqs.SQS, queue string) {
 		return
 	}
 
+	if len(res.Messages) == 0 {
+		log.WithFields(fields).Info("no messages")
+		return
+	}
+
 	span.SetBaggageItem("dd.trace_id", *res.Messages[0].MessageAttributes["dd.trace_id"].StringValue)
 	span.SetBaggageItem("dd.span_id", *res.Messages[0].MessageAttributes["dd.span_id"].StringValue)
 
