@@ -85,24 +85,26 @@ func (svr Server) handlePing() http.HandlerFunc {
 			jcarr = []byte(`{}`)
 		}
 
-		out, err := svr.sqs.SendMessage(&sqs.SendMessageInput{
-			MessageAttributes: map[string]*sqs.MessageAttributeValue{
-				"dd.trace_id": {
-					DataType:    aws.String("Number"),
-					StringValue: aws.String(fmt.Sprintf("%d", span.Context().TraceID())),
+		out, err := svr.sqs.SendMessageWithContext(
+			r.Context(),
+			&sqs.SendMessageInput{
+				MessageAttributes: map[string]*sqs.MessageAttributeValue{
+					"dd.trace_id": {
+						DataType:    aws.String("Number"),
+						StringValue: aws.String(fmt.Sprintf("%d", span.Context().TraceID())),
+					},
+					"dd.span_id": {
+						DataType:    aws.String("Number"),
+						StringValue: aws.String(fmt.Sprintf("%d", span.Context().SpanID())),
+					},
+					"span_ctx": {
+						DataType:    aws.String("String"),
+						StringValue: aws.String(string(jcarr)),
+					},
 				},
-				"dd.span_id": {
-					DataType:    aws.String("Number"),
-					StringValue: aws.String(fmt.Sprintf("%d", span.Context().SpanID())),
-				},
-				"span_ctx": {
-					DataType:    aws.String("String"),
-					StringValue: aws.String(string(jcarr)),
-				},
-			},
-			MessageBody: aws.String("ping"),
-			QueueUrl:    aws.String(svr.queue),
-		})
+				MessageBody: aws.String("ping"),
+				QueueUrl:    aws.String(svr.queue),
+			})
 
 		if err != nil {
 			log.WithFields(fields).Errorf("sqs: send message: %v", err)
