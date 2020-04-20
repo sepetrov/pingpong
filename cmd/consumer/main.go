@@ -10,8 +10,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	log "github.com/sirupsen/logrus"
+	awstrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/aws/aws-sdk-go/aws"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
+
+const serviceName = "pingpong-consumer"
 
 func init() {
 	log.SetFormatter(&log.JSONFormatter{})
@@ -30,11 +33,16 @@ func main() {
 		}
 	}
 
-	tracer.Start(tracer.WithAnalytics(true), tracer.WithServiceName("pingpong-consumer"))
+	tracer.Start(tracer.WithAnalytics(true), tracer.WithServiceName(serviceName))
 	defer tracer.Stop()
 
+	sess := awstrace.WrapSession(
+		session.Must(session.NewSession()),
+		awstrace.WithServiceName(serviceName),
+	)
+
 	queue := os.Getenv("SQS_QUEUE_URL")
-	svc := sqs.New(session.Must(session.NewSession()))
+	svc := sqs.New(sess)
 	for {
 		work(svc, queue)
 	}

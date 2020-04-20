@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	log "github.com/sirupsen/logrus"
+	awstrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/aws/aws-sdk-go/aws"
 	"gopkg.in/DataDog/dd-trace-go.v1/contrib/gorilla/mux"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
@@ -14,6 +15,8 @@ import (
 )
 
 const defaultHTTPPort = "8080"
+
+const serviceName = "pingpong-server"
 
 func init() {
 	log.SetFormatter(&log.JSONFormatter{})
@@ -36,8 +39,13 @@ func main() {
 		port = defaultHTTPPort
 	}
 
+	sess := awstrace.WrapSession(
+		session.Must(session.NewSession()),
+		awstrace.WithServiceName(serviceName),
+	)
+
 	svr, err := pingpong.New(
-		sqs.New(session.Must(session.NewSession())),
+		sqs.New(sess),
 		os.Getenv("SQS_QUEUE_URL"),
 		log.StandardLogger(),
 	)
@@ -45,7 +53,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	router := mux.NewRouter(mux.WithServiceName("pingpong-server"))
+	router := mux.NewRouter(mux.WithServiceName(serviceName))
 	router.HandleFunc("/ping", svr.ServeHTTP)
 
 	tracer.Start(tracer.WithAnalytics(true))
